@@ -22,13 +22,11 @@ def load_data():
         df = pd.read_csv(DATA_URL)
         
         # Identify and rename the problematic academic year column
-        # It's often 'Bachelor \tAcademic Year in EU' or 'Bachelor Academic Year in EU'
         academic_col_match = [col for col in df.columns if 'Academic Year in EU' in col]
         
         if academic_col_match:
             df.rename(columns={academic_col_match[0]: COL_ACADEMIC_YEAR_CLEANED}, inplace=True)
-            # Ensure the string values themselves are also clean (remove potential leading/trailing spaces/tabs)
-            df[COL_ACADEMIC_YEAR_CLEANED] = df[COL_ACADEMIC_YEAR_CLEANED].str.strip()
+            df[COL_ACADEMIC_YEAR_CLEANED] = df[COL_ACADEMIC_YEAR_CLEANED].astype(str).str.strip()
         else:
             st.error("The 'Bachelor Academic Year in EU' column was not found. Please check the CSV file structure.")
             return pd.DataFrame()
@@ -67,7 +65,6 @@ col1, col2 = st.columns(2)
 with col1:
     st.subheader("Gender Distribution")
     
-    # Data prep
     gender_counts = df[COL_GENDER].value_counts().reset_index()
     gender_counts.columns = [COL_GENDER, 'Count']
     
@@ -76,7 +73,7 @@ with col1:
         values='Count', 
         names=COL_GENDER, 
         title='Distribution of Gender in Arts Faculty',
-        hole=0.4 # Making it a donut chart
+        hole=0.4
     )
     fig_pie.update_traces(textinfo='percent+label', textposition='outside')
     st.plotly_chart(fig_pie, use_container_width=True)
@@ -89,7 +86,7 @@ with col2:
         df,
         x=COL_SSC_GPA,
         y=COL_HSC_GPA,
-        color=COL_GENDER, # Differentiate by Gender
+        color=COL_GENDER,
         title='Comparison of S.S.C (GPA) and H.S.C (GPA)',
         opacity=0.6,
         template="plotly_white"
@@ -108,7 +105,6 @@ col3, col4 = st.columns(2)
 with col3:
     st.subheader("Distribution of Bachelor Academic Year")
 
-    # Data prep
     academic_year_counts = df[COL_ACADEMIC_YEAR_CLEANED].value_counts().reset_index()
     academic_year_counts.columns = [COL_ACADEMIC_YEAR_CLEANED, 'Count']
     
@@ -123,12 +119,10 @@ with col3:
     fig_donut_year.update_traces(textinfo='percent+label', textposition='inside')
     st.plotly_chart(fig_donut_year, use_container_width=True)
 
-
 # --- D. Grouped Bar Chart (Academic Year by Gender) ---
 with col4:
     st.subheader("Bachelor Academic Year by Gender")
     
-    # Data prep
     grouped_data = df.groupby([COL_GENDER, COL_ACADEMIC_YEAR_CLEANED]).size().reset_index(name='Count')
 
     fig_grouped_bar = px.bar(
@@ -136,7 +130,7 @@ with col4:
         x=COL_GENDER,
         y='Count',
         color=COL_ACADEMIC_YEAR_CLEANED,
-        barmode='group', # Creates the grouped bars
+        barmode='group',
         category_orders={COL_ACADEMIC_YEAR_CLEANED: ACADEMIC_ORDER},
         title='Distribution of Bachelor Academic Year by Gender',
         template="plotly_white"
@@ -156,7 +150,6 @@ col5, col6 = st.columns(2)
 with col5:
     st.subheader("S.S.C GPA Distribution by Academic Year")
 
-    # Filter data (already done by ACADEMIC_ORDER, but good practice to filter)
     filtered_df_box = df[df[COL_ACADEMIC_YEAR_CLEANED].isin(ACADEMIC_ORDER)].copy()
 
     fig_box = px.box(
@@ -187,7 +180,7 @@ with col6:
 
     performance_pivot = performance_pivot.reindex(columns=ACADEMIC_ORDER, fill_value=0)
 
-    # Plotly Graph Objects is best for direct pivot table/matrix heatmaps
+    # Plotly Graph Objects for matrix heatmap
     z_data = performance_pivot.values
     x_data = performance_pivot.columns.tolist()
     y_data = performance_pivot.index.tolist()
@@ -211,41 +204,3 @@ with col6:
     st.plotly_chart(fig_heatmap, use_container_width=True)
 
 st.caption("All charts are interactive: pan, zoom, and hover for details.")
-# Create a pivot table to count students by Gender and Academic Year
-performance_pivot = performance_df.pivot_table(
-    index=COL_GENDER,
-    columns='Academic Year',
-    aggfunc='size',
-    fill_value=0
-)
-
-# Reindex the columns to ensure the desired order
-performance_pivot = performance_pivot.reindex(columns=ACADEMIC_ORDER, fill_value=0)
-
-# Plotly Heatmap (Conversion of fifth Seaborn plot)
-# Plotly Express does not have a native heatmap for this pivoted structure,
-# so we use plotly.graph_objects.Heatmap
-z_data = performance_pivot.values
-x_data = performance_pivot.columns.tolist()
-y_data = performance_pivot.index.tolist()
-
-fig_heatmap = go.Figure(data=go.Heatmap(
-    z=z_data,
-    x=x_data,
-    y=y_data,
-    colorscale='Greens', # Use a green color scale similar to the original
-    text=z_data,
-    texttemplate="%{text}",
-    hoverongaps=False
-))
-
-fig_heatmap.update_layout(
-    title='Number of Students with GPA > 3.00 by Gender and Academic Year',
-    xaxis_title='Bachelor Academic Year in EU',
-    yaxis_title='Gender',
-    xaxis_nticks=len(x_data)
-)
-
-st.plotly_chart(fig_heatmap, use_container_width=True)
-
-st.caption("All charts are interactive. Hover over elements for detailed information.")
